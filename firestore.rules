@@ -8,6 +8,15 @@ service cloud.firestore {
     }
     function isOwner(gid) { return signedIn() && group(gid).data.ownerUid == request.auth.uid; }
     function validName(n) { return n is string && n.size() >= 1 && n.size() <= 40; }
+    match /profiles/{uid} {
+      allow get: if signedIn() && request.auth.uid == uid;
+      allow list, delete: if false;
+      allow create, update: if signedIn() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['groupIds','updatedAt'])
+        && request.resource.data.groupIds is list
+        && request.resource.data.groupIds.size() <= 5
+        && request.resource.data.updatedAt == request.time;
+    }
     match /fellowships/{gid} {
       // A high-entropy Firestore document ID acts as the unlisted invitation link.
       // Anyone signed in who possesses the exact link can inspect its group title/mode.
@@ -26,7 +35,9 @@ service cloud.firestore {
         allow list: if isMember(gid);
         allow create: if signedIn()
           && uid == request.auth.uid
-          && exists(/databases/$(database)/documents/fellowships/$(gid))
+          && existsAfter(/databases/$(database)/documents/fellowships/$(gid))
+          && existsAfter(/databases/$(database)/documents/profiles/$(request.auth.uid))
+          && gid in getAfter(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.groupIds
           && request.resource.data.keys().hasOnly(['uid','name','joinedAt'])
           && request.resource.data.uid == request.auth.uid
           && validName(request.resource.data.name)
