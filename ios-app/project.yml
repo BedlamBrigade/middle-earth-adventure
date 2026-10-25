@@ -1,0 +1,36 @@
+name: MiddleEarthAdventure
+options:
+  bundleIdPrefix: com.bedlambrigade
+settings:
+  base:
+    SWIFT_VERSION: 5.0
+    IPHONEOS_DEPLOYMENT_TARGET: "17.0"
+packages:
+  Firebase:
+    url: https://github.com/firebase/firebase-ios-sdk.git
+    from: 12.0.0
+targets:
+  MiddleEarthAdventure:
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: Sources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.bedlambrigade.middleearthadventure
+        INFOPLIST_KEY_CFBundleDisplayName: Middle-earth Adventure
+        INFOPLIST_KEY_NSHealthShareUsageDescription: Middle-earth Adventure reads your daily step count to show walking progress. Health data stays private until you choose to sync.
+        GENERATE_INFOPLIST_FILE: YES
+        TARGETED_DEVICE_FAMILY: "1"
+    attributes:
+      SystemCapabilities:
+        com.apple.HealthKit:
+          enabled: 1
+    dependencies:
+      - package: Firebase
+        product: FirebaseAuth
+      - package: Firebase
+        product: FirebaseFirestore
+      - package: Firebase
+        product: FirebaseCore
