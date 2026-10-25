@@ -176,7 +176,8 @@ withButton('fellowshipAdd',async()=>{
   if(!Number.isInteger(n)||n<1||n>100000||!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(date))throw Error('Enter a date and 1–100,000 whole steps.');
   // Use the original solo journal as the single source for manual step submissions.
   el('date').value=date;el('steps').value=String(n);el('addSteps').click();
-  el('fellowshipSteps').value='';say('Steps added to your solo journey; all joined Fellowships will synchronize.');
+  if(!el('message').textContent.startsWith('Added '))throw Error('Solo save failed. Fellowship upload was not started.');
+  el('fellowshipSteps').value='';
 });
 withButton('fellowshipCopy',async()=>{
   const url=new URL(location.href);url.searchParams.delete('utm_source');url.searchParams.set('fellowship',selected);
