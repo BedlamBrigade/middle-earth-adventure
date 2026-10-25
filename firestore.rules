@@ -1,0 +1,57 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function group(gid) { return get(/databases/$(database)/documents/fellowships/$(gid)); }
+    function isMember(gid) {
+      return signedIn() && exists(/databases/$(database)/documents/fellowships/$(gid)/members/$(request.auth.uid));
+    }
+    function isOwner(gid) { return signedIn() && group(gid).data.ownerUid == request.auth.uid; }
+    function validName(n) { return n is string && n.size() >= 1 && n.size() <= 40; }
+    match /fellowships/{gid} {
+      // A high-entropy Firestore document ID acts as the unlisted invitation link.
+      // Anyone signed in who possesses the exact link can inspect its group title/mode.
+      allow get: if signedIn();
+      allow list: if false;
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['name','mode','ownerUid','createdAt'])
+        && validName(request.resource.data.name)
+        && request.resource.data.mode in ['cooperative','race']
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.createdAt == request.time;
+      allow update, delete: if false;
+
+      match /members/{uid} {
+        allow get: if signedIn() && (uid == request.auth.uid || isMember(gid));
+        allow list: if isMember(gid);
+        allow create: if signedIn()
+          && uid == request.auth.uid
+          && exists(/databases/$(database)/documents/fellowships/$(gid))
+          && request.resource.data.keys().hasOnly(['uid','name','joinedAt'])
+          && request.resource.data.uid == request.auth.uid
+          && validName(request.resource.data.name)
+          && request.resource.data.joinedAt == request.time;
+        allow update: if signedIn() && uid == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name'])
+          && validName(request.resource.data.name);
+        allow delete: if signedIn() && uid != group(gid).data.ownerUid
+          && (uid == request.auth.uid || isOwner(gid));
+      }
+
+      match /entries/{entryId} {
+        allow get, list: if isMember(gid);
+        allow create: if isMember(gid)
+          && request.resource.data.keys().hasOnly(['uid','date','steps','createdAt'])
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.steps is int
+          && request.resource.data.steps >= 1
+          && request.resource.data.steps <= 100000
+          && request.resource.data.date is string
+          && request.resource.data.date.matches('^\\d{4}-\\d{2}-\\d{2}$')
+          && request.resource.data.createdAt == request.time;
+        // Entries are append-only to keep members from changing the history silently.
+        allow update, delete: if false;
+      }
+    }
+  }
+}
