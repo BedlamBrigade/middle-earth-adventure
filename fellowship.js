@@ -27,14 +27,15 @@ function render(){
   authArea.hidden=signedIn;
   el('fellowshipSignedIn').hidden=!signedIn;
   el('fellowshipSignedIn').textContent=signedIn?'Signed in: '+state.user.email:'';
+  el('fellowshipLogout').hidden=!signedIn;
   groupSetup.hidden=!signedIn || !!state.groupId || !!inviteId;
-  joinArea.hidden=!signedIn || !!state.groupId || !inviteId;
+  joinArea.hidden=!signedIn || !inviteId || !state.group || !!state.member;
   groupArea.hidden=!signedIn || !state.member;
   if(!state.member)return;
   el('fellowshipGroupName').textContent=state.group.name;
   el('fellowshipGroupMode').textContent=state.group.mode==='cooperative'?'Shared journey':'Race to Mount Doom';
   const byMember=new Map(state.members.map(m=>[m.uid,{name:m.name,uid:m.uid,steps:0}]));
-  for(const e of state.entries){ const member=byMember.get(e.uid);if(member)member.steps+=e.steps; }
+  for(const e of state.entries){ if(!byMember.has(e.uid))byMember.set(e.uid,{uid:e.uid,name:'Former member',steps:0,former:true}); byMember.get(e.uid).steps+=e.steps; }
   const standings=[...byMember.values()].sort((a,b)=>b.steps-a.steps);
   const sum=standings.reduce((total,m)=>total+m.steps,0), miles=sum/2000;
   el('fellowshipMainStat').textContent=state.group.mode==='cooperative'
@@ -53,7 +54,7 @@ function render(){
   el('fellowshipLogCount').textContent=state.entries.length+' recorded entries';
   const manage=el('fellowshipManage');manage.replaceChildren();
   if(state.group.ownerUid===state.user.uid){
-    for(const m of standings.filter(x=>x.uid!==state.user.uid)){
+    for(const m of standings.filter(x=>x.uid!==state.user.uid && !x.former)){
       const row=document.createElement('div');row.className='entry row';
       const name=document.createElement('span');name.textContent=m.name;
       const remove=document.createElement('button');remove.className='secondary';remove.textContent='Remove';
