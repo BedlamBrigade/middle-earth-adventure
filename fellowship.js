@@ -120,7 +120,7 @@ const withButton=(id,fn)=>{el(id).onclick=async()=>{const button=el(id);button.d
 function queueLog(date,steps){
   if(!signedUser||!groupIds.length)return;
   const entry={id:crypto.randomUUID(),uid:signedUser.uid,date,steps,groupIds:[...groupIds]};
-  const q=pending();q.push(entry);persistQueue(q);
+  const q=pending();q.push(entry);try{persistQueue(q)}catch(error){say('Unable to queue cloud upload in browser storage.',true);return;}
   say('Solo steps saved. Uploading to '+entry.groupIds.length+' Fellowships…');
   flushPending();
 }
@@ -202,7 +202,16 @@ if(firebaseConfig.apiKey.startsWith('REPLACE_')){
     if(profileUnsub)profileUnsub();profileUnsub=null;clearListeners();
     signedUser=user;groupIds=[];selected=null;active={};
     if(!user){render();say('Sign in to use Fellowship Mode.');return}
-    profileUnsub=onSnapshot(userDoc(),s=>activate(s.exists()?(s.data().groupIds||[]):[]),e=>say('Profile sync error: '+e.message,true));
+    profileUnsub=onSnapshot(userDoc(),async snap=>{
+      if(!snap.exists()){
+        const old=localStorage.getItem('middleEarth.lastFellowship.'+user.uid);
+        if(old){try{
+          const membership=await getDoc(doc(db,'fellowships',old,'members',user.uid));
+          if(membership.exists()){await setDoc(userDoc(),{groupIds:[old],updatedAt:serverTimestamp()});return;}
+        }catch(e){console.error('Legacy group migration failed',e)}}
+      }
+      activate(snap.exists()?(snap.data().groupIds||[]):[]);
+    },e=>say('Profile sync error: '+e.message,true));
     render();
   });
 }
